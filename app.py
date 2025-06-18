@@ -1,46 +1,57 @@
+import os
+from dotenv import load_dotenv
+
+# .env から OPENAI_API_KEY を読み込む
+load_dotenv()
+if not os.getenv("OPENAI_API_KEY"):
+    raise RuntimeError(
+        "OPENAI_API_KEY が見つかりません。\n"
+        ".env を作成して\nOPENAI_API_KEY=あなたのキー\nを記入してください。"
+    )
+
+from langchain_openai import ChatOpenAI
+from langchain.schema import SystemMessage, HumanMessage
 import streamlit as st
 
-st.title("サンプルアプリ②: 少し複雑なWebアプリ")
+llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0)
 
-st.write("##### 動作モード1: 文字数カウント")
-st.write("入力フォームにテキストを入力し、「実行」ボタンを押すことで文字数をカウントできます。")
-st.write("##### 動作モード2: BMI値の計算")
-st.write("身長と体重を入力することで、肥満度を表す体型指数のBMI値を算出できます。")
+# =============================
+# Streamlit アプリ
+# =============================
+st.title("サンプルアプリ: 子育て相談アプリ")
 
-selected_item = st.radio(
+st.write("##### 動作モード1: 教育に関する相談")
+st.write("入力フォームに教育に関する質問を入力することで、専門家に相談したような回答を得ることができます。")
+st.write("##### 動作モード2: 子供の健康に関する相談")
+st.write("入力フォームに子供の健康に関する質問を入力することで、専門家に相談したような回答を得ることができます。")
+
+mode = st.radio(
     "動作モードを選択してください。",
-    ["文字数カウント", "BMI値の計算"]
+    ["教育に関する相談", "子供の健康に関する相談"],
 )
 
 st.divider()
 
-if selected_item == "文字数カウント":
-    input_message = st.text_input(label="文字数のカウント対象となるテキストを入力してください。")
-    text_count = len(input_message)
-
-else:
-    height = st.text_input(label="身長（cm）を入力してください。")
-    weight = st.text_input(label="体重（kg）を入力してください。")
+label = "教育に関する質問を入力してください。" if mode == "教育に関する相談" \
+        else "子供の健康に関する質問を入力してください。"
+question = st.text_input(label=label)
 
 if st.button("実行"):
-    st.divider()
+    if not question:
+        st.error("質問を入力してから『実行』を押してください。")
+        st.stop()
 
-    if selected_item == "文字数カウント":
-        if input_message:
-            st.write(f"文字数: **{text_count}**")
+    # LLM へのメッセージ作成
+    system_prompt = "あなたは教育の専門家です。" if mode == "教育に関する相談" \
+                    else "あなたは子供の健康の専門家です。"
+    messages = [
+        SystemMessage(content=system_prompt),
+        HumanMessage(content=question)
+    ]
 
-        else:
-            st.error("カウント対象となるテキストを入力してから「実行」ボタンを押してください。")
+    # 生成
+    with st.spinner("考え中…"):
+        response = llm.invoke(messages).content
 
-    else:
-        if height and weight:
-            try:
-                bmi = round(int(weight) / ((int(height)/100) ** 2), 1)
-                st.write(f"BMI値: {bmi}")
-
-            except ValueError as e:
-                st.error("身長と体重は数値で入力してください。")
-
-        else:
-            st.error("身長と体重をどちらも入力してください。")
-            
+    st.success("回答が生成されました！")
+    st.markdown(response)
